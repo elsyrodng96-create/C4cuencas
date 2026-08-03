@@ -14,16 +14,14 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
-# -----------------------------------------------------------------------------
-# 1. CONFIGURACIÓN DE PÁGINA
-# -----------------------------------------------------------------------------
+
 st.set_page_config(
     page_title="SAT Rio David",
     page_icon="🌧️",
     layout="wide",
 )
 
-# Estilo CSS para ajustar márgenes
+
 st.markdown(
     """
     <style>
@@ -49,9 +47,6 @@ COLORS = {
 }
 
 
-# -----------------------------------------------------------------------------
-# 2. AUTENTICACIÓN CON SERVICE ACCOUNT GEE
-# -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner="Conectando con Google Earth Engine...")
 def init_earth_engine():
   # 1. Copiamos el diccionario desde los secretos
@@ -63,27 +58,24 @@ def init_earth_engine():
     pk = pk.replace("\\n", "\n").strip("'\"")
     service_account_info["private_key"] = pk
 
-  # 3. Scopes requeridos
+ 
   scopes = [
       "https://www.googleapis.com/auth/earthengine",
       "https://www.googleapis.com/auth/devstorage.full_control",
   ]
 
-  # 4. Generamos credenciales
+
   credentials = service_account.Credentials.from_service_account_info(
       service_account_info, scopes=scopes
   )
 
-  # 5. Extraemos el project_id dinámicamente desde el mismo diccionario
+ 
   project_id = service_account_info.get("project_id")
 
   # 6. Inicializamos con el proyecto dinámico
   ee.Initialize(credentials, project=project_id)
 
 
-# -----------------------------------------------------------------------------
-# 3. PROCESAMIENTO Y CAPAS GEE
-# -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner="Procesando mapa de riesgo...")
 def build_layers():
   cuenca = ee.FeatureCollection("WWF/HydroSHEDS/v1/Basins/hybas_9").filter(
@@ -92,16 +84,16 @@ def build_layers():
 
   geom = cuenca.geometry()
 
-  # Pendiente: para inundación se priorizan zonas planas.
+  
   dem = ee.Image("USGS/SRTMGL1_003").clip(geom)
   pendiente = ee.Terrain.slope(dem)
   pendiente_baja = ee.Image(1).subtract(pendiente.divide(45).clamp(0, 1))
 
-  # Acumulación de flujo.
+ 
   flujo = ee.Image("WWF/HydroSHEDS/15ACC").clip(geom)
   flujo_norm = flujo.log10().unitScale(0, 7).clamp(0, 1)
 
-  # Uso/cobertura del suelo.
+  
   cobertura = ee.Image("ESA/WorldCover/v200/2021").select("Map").clip(geom)
 
   uso = (
@@ -111,7 +103,7 @@ def build_layers():
       .add(cobertura.eq(10).multiply(0.2))
   )
 
-  # Índice compuesto de riesgo.
+
   riesgo_bruto = (
       flujo_norm.multiply(0.55)
       .add(pendiente_baja.multiply(0.30))
@@ -136,7 +128,7 @@ def build_layers():
       .rename("riesgo")
   )
 
-  # Imagen CHIRPS más reciente.
+  
   lluvia_img = (
       ee.ImageCollection("UCSB-CHG/CHIRPS/DAILY")
       .select("precipitation")
