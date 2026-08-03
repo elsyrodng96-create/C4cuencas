@@ -1,6 +1,8 @@
 streamlit>=1.42
 earthengine-api>=1.5
 geemap>=0.36
+python-box<7.0.0
+google-auth
 folium>=0.17
 pandas>=2.2
 plotly>=5.24
