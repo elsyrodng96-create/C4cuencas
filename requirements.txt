@@ -1,5 +1,8 @@
 streamlit
-earthengine-api
-folium
 streamlit-folium
+folium
+earthengine-api
 google-auth
+pandas
+matplotlib
+seaborn
