@@ -1,0 +1,239 @@
+"""Portal web del Sistema de Alerta Temprana (SAT) de la subcuenca del río David."""
+
+import json
+from datetime import datetime
+from io import BytesIO
+from pathlib import Path
+
+import ee
+import geemap.foliumap as geemap
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+
+st.set_page_config(page_title="SAT Río David", page_icon="🌧️", layout="wide")
+
+HYBAS_ID = 7090885760
+HISTORY_FILE = Path("data/chirps_historico.csv")
+COLORS = {"Verde": "#16A34A", "Amarilla": "#EAB308", "Naranja": "#F97316", "Roja": "#DC2626"}
+
+
+@st.cache_resource(show_spinner="Conectando con Google Earth Engine...")
+def initialize_earth_engine():
+    account = dict(st.secrets["gcp_service_account"])
+    credentials = ee.ServiceAccountCredentials(account["client_email"], key_data=json.dumps(account))
+    ee.Initialize(credentials, project=account["project_id"])
+
+
+@st.cache_resource(show_spinner="Procesando mapa de riesgo...")
+def build_layers():
+    """Construye las capas del modelo de riesgo y consulta la lluvia CHIRPS vigente."""
+    basin = ee.FeatureCollection("WWF/HydroSHEDS/v1/Basins/hybas_9").filter(
+        ee.Filter.eq("HYBAS_ID", HYBAS_ID)
+    )
+    geom = basin.geometry()
+
+    dem = ee.Image("USGS/SRTMGL1_003").clip(geom)
+    low_slope = ee.Image(1).subtract(ee.Terrain.slope(dem).divide(45).clamp(0, 1))
+    flow_norm = ee.Image("WWF/HydroSHEDS/15ACC").clip(geom).log10().unitScale(0, 7).clamp(0, 1)
+    cover = ee.Image("ESA/WorldCover/v200/2021").select("Map").clip(geom)
+    land_use = cover.eq(50).multiply(1).add(cover.eq(40).multiply(0.7)).add(cover.eq(10).multiply(0.2))
+
+    raw_risk = flow_norm.multiply(0.55).add(low_slope.multiply(0.30)).add(land_use.multiply(0.15)).rename("risk")
+    range_values = raw_risk.reduceRegion(ee.Reducer.minMax(), geom, 30, maxPixels=1e13)
+    risk_min = ee.Number(range_values.get("risk_min"))
+    risk_max = ee.Number(range_values.get("risk_max"))
+    risk = raw_risk.subtract(risk_min).divide(risk_max.subtract(risk_min)).clamp(0, 1).rename("risk")
+
+    rainfall = ee.ImageCollection("UCSB-CHG/CHIRPS/DAILY").select("precipitation").sort("system:time_start", False).first().clip(geom)
+    rain_mm = ee.Number(rainfall.reduceRegion(ee.Reducer.mean(), geom, 5566, maxPixels=1e13).get("precipitation"))
+    date = ee.Date(rainfall.get("system:time_start")).format("YYYY-MM-dd")
+    return basin, risk, rain_mm, date
+
+
+@st.cache_data(show_spinner=False)
+def current_rainfall():
+    _, _, rainfall, date = build_layers()
+    return float(rainfall.getInfo()), date.getInfo()
+
+
+@st.cache_data(show_spinner=False)
+def load_history():
+    if not HISTORY_FILE.exists():
+        return pd.DataFrame(columns=["fecha", "lluvia_mm"])
+    frame = pd.read_csv(HISTORY_FILE)
+    frame["fecha"] = pd.to_datetime(frame["fecha"])
+    return frame.sort_values("fecha")
+
+
+def level_for_rain(rain_mm, p90, p95, p99):
+    if rain_mm >= p99:
+        return "Roja"
+    if rain_mm >= p95:
+        return "Naranja"
+    if rain_mm >= p90:
+        return "Amarilla"
+    return "Verde"
+
+
+def make_map(view, p90, p95, p99):
+    basin, risk, rain_mm, _ = build_layers()
+    map_object = geemap.Map()
+    map_object.centerObject(basin, 10)
+
+    if view == "Índice de riesgo":
+        map_object.addLayer(risk, {"min": 0, "max": 1, "palette": ["#16A34A", "#FDE047", "#F97316", "#DC2626"]}, "Riesgo de inundación")
+    else:
+        high_risk = risk.gte(0.60)
+        alert = (
+            ee.Image.constant(0)
+            .where(high_risk.And(ee.Image.constant(rain_mm).gte(p90)), 1)
+            .where(high_risk.And(ee.Image.constant(rain_mm).gte(p95)), 2)
+            .where(high_risk.And(ee.Image.constant(rain_mm).gte(p99)), 3)
+            .clip(basin.geometry())
+        )
+        map_object.addLayer(alert, {"min": 0, "max": 3, "palette": [COLORS["Verde"], COLORS["Amarilla"], COLORS["Naranja"], COLORS["Roja"]]}, "Alerta vigente")
+        map_object.add_legend(
+            title="Nivel de alerta",
+            legend_dict={
+                "Verde — normal": COLORS["Verde"],
+                "Amarilla — P90": COLORS["Amarilla"],
+                "Naranja — P95": COLORS["Naranja"],
+                "Roja — P99": COLORS["Roja"],
+            },
+        )
+    map_object.addLayer(basin.style(color="#0F172A", fillColor="00000000", width=2), {}, "Límite de cuenca")
+    return map_object
+
+
+def report_pdf(alert, rain_mm, rain_date, sector, p90, p95, p99):
+    """Genera un informe breve descargable; no contiene credenciales ni datos sensibles."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph("Sistema de Alerta Temprana — Subcuenca del río David", styles["Title"]),
+        Paragraph(f"Reporte generado: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles["Normal"]),
+        Spacer(1, 0.22 * inch),
+        Paragraph(f"<b>Estado:</b> ALERTA {alert.upper()}", styles["Heading2"]),
+        Paragraph(f"<b>Sector consultado:</b> {sector}", styles["Normal"]),
+        Paragraph(f"<b>Lluvia CHIRPS:</b> {rain_mm:.2f} mm/día ({rain_date})", styles["Normal"]),
+        Paragraph(f"<b>Umbrales:</b> P90={p90:.2f}; P95={p95:.2f}; P99={p99:.2f} mm/día", styles["Normal"]),
+        Spacer(1, 0.22 * inch),
+        Paragraph("Modelo de riesgo", styles["Heading2"]),
+        Paragraph("El mapa combina acumulación de flujo (55 %), pendiente baja (30 %) y uso/cobertura del suelo (15 %).", styles["Normal"]),
+        Paragraph("Las alertas espaciales se activan donde el índice de riesgo es igual o superior a 0.60.", styles["Normal"]),
+    ]
+    story.extend([Spacer(1, 0.25 * inch), Paragraph("Nota: prototipo académico; las alertas requieren validación institucional antes de su uso operativo.", styles["Italic"])])
+    doc.build(story)
+    return buffer.getvalue()
+
+
+def main():
+    st.markdown("<h1 style='margin-bottom:0'>🌧️ SAT — Subcuenca del río David</h1>", unsafe_allow_html=True)
+    st.caption("Portal de monitoreo hidrometeorológico y alerta por inundaciones · Chiriquí, Panamá")
+
+    with st.sidebar:
+        st.header("Panel de control")
+        sector = st.selectbox("Sector", ["Toda la subcuenca", "Cuenca alta — Boquete", "Cuenca media — Dolega", "Cuenca baja — David"])
+        st.subheader("Umbrales históricos CHIRPS")
+        p90 = st.number_input("P90 (mm/día)", min_value=0.0, value=27.35, step=0.01)
+        p95 = st.number_input("P95 (mm/día)", min_value=p90, value=35.86, step=0.01)
+        p99 = st.number_input("P99 (mm/día)", min_value=p95, value=53.86, step=0.01)
+        st.caption("Calculados con CHIRPS diario, 1985–2024.")
+
+    try:
+        initialize_earth_engine()
+        rain_mm, rain_date = current_rainfall()
+    except Exception as error:
+        st.error("No se pudo conectar con Google Earth Engine.")
+        st.info("Configura el secreto `gcp_service_account` antes de publicar la aplicación.")
+        st.exception(error)
+        st.stop()
+
+    alert = level_for_rain(rain_mm, p90, p95, p99)
+    st.markdown(
+        f"<div style='border-left: 8px solid {COLORS[alert]}; background:#F8FAFC; padding:16px 20px; border-radius:8px;'>"
+        f"<b style='font-size:1.25rem; color:{COLORS[alert]}'>ALERTA {alert.upper()}</b><br>"
+        f"Lluvia media más reciente: <b>{rain_mm:.2f} mm/día</b> · Fecha CHIRPS: <b>{rain_date}</b></div>",
+        unsafe_allow_html=True,
+    )
+
+    metric_a, metric_b, metric_c, metric_d = st.columns(4)
+    metric_a.metric("Precipitación", f"{rain_mm:.2f} mm/día")
+    metric_b.metric("Umbral activo", "Normal" if alert == "Verde" else f"P{ {'Amarilla': 90, 'Naranja': 95, 'Roja': 99}[alert]}")
+    metric_c.metric("P90", f"{p90:.2f} mm/día")
+    metric_d.metric("Zonas de riesgo alto", "Índice ≥ 0.60")
+
+    tab_status, tab_map, tab_data, tab_risk, tab_reports = st.tabs([
+        "Resumen", "Mapas", "Precipitación", "Riesgo y umbrales", "Reportes",
+    ])
+
+    with tab_status:
+        st.subheader("Interpretación operativa")
+        messages = {
+            "Verde": "Condiciones de lluvia dentro de los valores habituales. Mantener vigilancia rutinaria.",
+            "Amarilla": "Lluvia intensa. Incrementar la vigilancia en zonas de riesgo alto.",
+            "Naranja": "Lluvia muy intensa. Preparar acciones preventivas y comunicación con comunidades expuestas.",
+            "Roja": "Lluvia extrema. Activar los protocolos institucionales de respuesta ante inundaciones.",
+        }
+        st.info(messages[alert])
+        st.markdown("**Fuentes del portal**")
+        st.write("Precipitación diaria: CHIRPS. Riesgo: pendiente baja, acumulación de flujo y cobertura del suelo.")
+
+    with tab_map:
+        view = st.radio("Capa a visualizar", ["Alerta vigente", "Índice de riesgo"], horizontal=True)
+        st.caption("La alerta se muestra únicamente donde coinciden lluvia crítica y riesgo espacial alto.")
+        make_map(view, p90, p95, p99).to_streamlit(height=610)
+
+    with tab_data:
+        st.subheader("Precipitación histórica")
+        history = load_history()
+        if history.empty:
+            st.warning("Para mostrar la serie histórica, agrega `data/chirps_historico.csv` exportado desde Colab.")
+        else:
+            start, end = st.date_input("Período", value=(history["fecha"].min().date(), history["fecha"].max().date()))
+            period = history[(history["fecha"].dt.date >= start) & (history["fecha"].dt.date <= end)]
+            chart = px.line(period, x="fecha", y="lluvia_mm", labels={"fecha": "Fecha", "lluvia_mm": "Precipitación (mm/día)"})
+            chart.add_hline(y=p90, line_dash="dash", line_color=COLORS["Amarilla"], annotation_text="P90")
+            chart.add_hline(y=p95, line_dash="dash", line_color=COLORS["Naranja"], annotation_text="P95")
+            chart.add_hline(y=p99, line_dash="dash", line_color=COLORS["Roja"], annotation_text="P99")
+            chart.update_layout(height=420, margin=dict(l=10, r=10, t=20, b=10))
+            st.plotly_chart(chart, use_container_width=True)
+
+    with tab_risk:
+        st.subheader("Modelo de riesgo de inundación")
+        st.write("El índice se normaliza entre 0 y 1. Las zonas con índice igual o superior a 0.60 se consideran de riesgo alto en el motor de alerta.")
+        weights = pd.DataFrame({
+            "Factor": ["Acumulación de flujo", "Pendiente baja", "Uso/cobertura del suelo"],
+            "Peso": ["55 %", "30 %", "15 %"],
+            "Interpretación": ["Proximidad funcional a la red de drenaje", "Mayor propensión a acumulación de agua", "Sensibilidad asociada a superficie urbana/agropecuaria"],
+        })
+        st.dataframe(weights, use_container_width=True, hide_index=True)
+        thresholds = pd.DataFrame({"Nivel": ["Amarilla", "Naranja", "Roja"], "Regla de lluvia": [f"≥ P90 ({p90:.2f} mm/día)", f"≥ P95 ({p95:.2f} mm/día)", f"≥ P99 ({p99:.2f} mm/día)"], "Condición espacial": ["Riesgo ≥ 0.60"] * 3})
+        st.dataframe(thresholds, use_container_width=True, hide_index=True)
+
+    with tab_reports:
+        st.subheader("Reportes descargables")
+        st.write("Descarga un resumen operativo en PDF o los datos disponibles en CSV.")
+        report = report_pdf(alert, rain_mm, rain_date, sector, p90, p95, p99)
+        download_a, download_b = st.columns(2)
+        download_a.download_button("Descargar reporte PDF", report, f"reporte_SAT_Rio_David_{datetime.now():%Y%m%d}.pdf", "application/pdf", use_container_width=True)
+
+        export = pd.DataFrame([{
+            "sector": sector, "alerta_actual": alert, "lluvia_chirps_mm_dia": rain_mm,
+            "fecha_chirps": rain_date, "p90_mm_dia": p90, "p95_mm_dia": p95, "p99_mm_dia": p99,
+        }])
+        download_b.download_button("Descargar datos CSV", export.to_csv(index=False).encode("utf-8-sig"), f"datos_SAT_Rio_David_{datetime.now():%Y%m%d}.csv", "text/csv", use_container_width=True)
+
+    st.divider()
+    st.caption("Prototipo académico. Las alertas requieren validación institucional y no sustituyen los avisos oficiales de SINAPROC.")
+
+
+if __name__ == "__main__":
+    main()
