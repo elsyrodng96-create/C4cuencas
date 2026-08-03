@@ -90,7 +90,7 @@ def load_historical_data():
     Si subiste el archivo 'chirps_historico.csv' a tu repositorio de GitHub,
     lo leerá directo (mucho más rápido). De lo contrario, se procesará mediante GEE.
     """
-    csv_file = "chirps_historico.csv"
+    csv_file = "data/chirps_historico.csv"
     if os.path.exists(csv_file):
         df = pd.read_csv(csv_file)
         df["fecha"] = pd.to_datetime(df["fecha"])
