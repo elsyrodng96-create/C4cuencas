@@ -1,0 +1,13 @@
+# Streamlit secrets and local credentials
+.streamlit/secrets.toml
+*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# System files
+.DS_Store
+Thumbs.db
