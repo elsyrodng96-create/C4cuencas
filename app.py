@@ -287,40 +287,56 @@ def main():
         st.exception(error)
         st.stop()
 
+    # Umbrales históricos (calculados automáticamente, ya no editables en la barra lateral)
+    p90 = float(df_hist["lluvia_mm"].quantile(0.90)) if not df_hist.empty else 27.42
+    p95 = float(df_hist["lluvia_mm"].quantile(0.95)) if not df_hist.empty else 35.86
+    p99 = float(df_hist["lluvia_mm"].quantile(0.99)) if not df_hist.empty else 53.71
+
     # --- BARRA LATERAL (PANEL DE CONTROL) ---
     with st.sidebar:
         st.header("⚙️ Panel de Control")
-        sector = st.selectbox(
-            "Sector",
-            [
-                "Toda la subcuenca",
-                "Cuenca alta - Boquete",
-                "Cuenca media - Dolega",
-                "Cuenca baja - David",
-            ],
-        )
 
-        st.subheader("📊 Umbrales Históricos CHIRPS")
-        p90_def = float(df_hist["lluvia_mm"].quantile(0.90)) if not df_hist.empty else 27.42
-        p95_def = float(df_hist["lluvia_mm"].quantile(0.95)) if not df_hist.empty else 35.86
-        p99_def = float(df_hist["lluvia_mm"].quantile(0.99)) if not df_hist.empty else 53.71
-
-        p90 = st.number_input("P90 (mm/dia)", min_value=0.0, value=round(p90_def, 2), step=0.01)
-        p95 = st.number_input("P95 (mm/dia)", min_value=p90, value=round(p95_def, 2), step=0.01)
-        p99 = st.number_input("P99 (mm/dia)", min_value=p95, value=round(p99_def, 2), step=0.01)
-
-        st.markdown("---")
         st.subheader("📅 Consulta Histórica de Fecha")
-        
         min_date = df_hist["fecha"].min().date() if not df_hist.empty else date(1985, 1, 1)
         max_date = df_hist["fecha"].max().date() if not df_hist.empty else date(2025, 12, 31)
-
         fecha_seleccionada = st.date_input(
             "Selecciona un día:",
             value=max_date,
             min_value=min_date,
             max_value=max_date,
         )
+        # Filtrar precipitación para el día seleccionado en la barra lateral
+        lluvia_dia = df_hist[df_hist["fecha"].dt.date == fecha_seleccionada]
+        if not lluvia_dia.empty:
+            val_lluvia = lluvia_dia["lluvia_mm"].values[0]
+            st.metric(
+                label=f"Lluvia el {fecha_seleccionada.strftime('%Y-%m-%d')}",
+                value=f"{val_lluvia:.2f} mm/día"
+            )
+            # Nivel de alerta específico para esa fecha seleccionada
+            alerta_sel = alert_level(val_lluvia, p90, p95, p99)
+            st.markdown(f"**Nivel de Alerta:** :{COLORS[alerta_sel]}[ALERTA {alerta_sel.upper()}]")
+        else:
+            st.warning("No hay registro para la fecha seleccionada.")
+
+    # Estado de alerta actual
+    alerta = alert_level(lluvia_mm, p90, p95, p99)
+    st.markdown(
+        f"""
+        <div style="border-left: 8px solid {COLORS[alerta]}; background: #F8FAFC; padding: 16px 20px; border-radius: 8px;">
+            <b style="font-size:1.25rem; color:{COLORS[alerta]}">ALERTA {alerta.upper()}</b><br>
+            Lluvia media mas reciente: <b>{lluvia_mm:.2f} mm/dia</b> - Fecha CHIRPS: <b>{fecha_mas_reciente}</b>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.write("")
+    col1, col2, col3, col4 = st.columns(4)
+    threshold_name = {"Verde": "Normal", "Amarilla": "P90", "Naranja": "P95", "Roja": "P99"}
+    col1.metric("Precipitacion Actual", f"{lluvia_mm:.2f} mm/dia")
+    col2.metric("Umbral activo", threshold_name[alerta])
+    col3.metric("P90", f"{p90:.2f} mm/dia")
+    col4.metric("Riesgo alto", "Indice >= 0.60")
 
         # Filtrar precipitación para el día seleccionado en la barra lateral
         lluvia_dia = df_hist[df_hist["fecha"].dt.date == fecha_seleccionada]
