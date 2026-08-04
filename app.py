@@ -298,7 +298,7 @@ def main():
         
         st.markdown("---")
         st.subheader("📍 Coordenadas de la Cuenca")
-        st.markdown("**Latitud:** 8.559471 | **Longitud:** -82.459861")
+        st.markdown("**Latitud:** 8.559471      | **Longitud:** -82.459861")
 
         st.subheader("📅 Consulta Histórica de Fecha")
         min_date = df_hist["fecha"].min().date() if not df_hist.empty else date(1985, 1, 1)
