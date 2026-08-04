@@ -104,7 +104,7 @@ def load_historical_data():
 
         chirps = (
             ee.ImageCollection("UCSB-CHG/CHIRPS/DAILY")
-            .filterDate("1985-01-01", "2025-12-31")
+            .filterDate("1985-01-01", "2026-8-2")
             .select("precipitation")
         )
 
@@ -391,7 +391,7 @@ def main():
         st_folium(m, width=1200, height=600)
 
     with tab3:
-        st.subheader("📈 Análisis Histórico de Precipitaciones (1985–2024)")
+        st.subheader("📈 Análisis Histórico de Precipitaciones (1985–2025)")
 
         # BLOQUE 14: Frecuencia anual de eventos extremos (> P99)
         st.markdown("### Frecuencia Anual de Eventos Extremos (> P99)")
@@ -429,7 +429,7 @@ def main():
             val_ll = lluvia_dia["lluvia_mm"].values[0]
             ax2.scatter([fecha_dt], [val_ll], color="black", s=50, zorder=5, label=f"Seleccionado: {val_ll:.1f} mm")
 
-        ax2.set_title("Serie temporal de precipitación diaria (CHIRPS 1985–2024)", fontsize=14, fontweight="bold")
+        ax2.set_title("Serie temporal de precipitación diaria (CHIRPS 1985–2025)", fontsize=14, fontweight="bold")
         ax2.set_xlabel("Año", fontsize=10)
         ax2.set_ylabel("Precipitación (mm/día)", fontsize=10)
         ax2.grid(True, linestyle="--", alpha=0.4)
