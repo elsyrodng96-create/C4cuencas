@@ -327,7 +327,7 @@ def main():
         f"""
         <div style="border-left: 8px solid {COLORS[alerta]}; background: #F8FAFC; padding: 16px 20px; border-radius: 8px;">
             <b style="font-size:1.25rem; color:{COLORS[alerta]}">ALERTA {alerta.upper()}</b><br>
-            Lluvia media mas reciente: <b>{lluvia_mm:.2f} mm/dia</b> - Fecha CHIRPS: <b>{fecha_mas_reciente}</b>
+            Lluvia media mas reciente: <b>{lluvia_mm:.2f} mm/dia</b>
         </div>
         """,
         unsafe_allow_html=True,
