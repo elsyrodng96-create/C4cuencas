@@ -300,7 +300,7 @@ def main():
         st.subheader("📍 Coordenadas de la Cuenca")
         st.markdown("**Latitud:** 8.559471 | **Longitud:** -82.459861")
 
-        st.subheaderst("📅 Consulta Histórica de Fecha")
+        st.subheader("📅 Consulta Histórica de Fecha")
         min_date = df_hist["fecha"].min().date() if not df_hist.empty else date(1985, 1, 1)
         max_date = df_hist["fecha"].max().date() if not df_hist.empty else date(2025, 12, 31)
         fecha_seleccionada = st.date_input(
