@@ -333,14 +333,6 @@ def main():
         unsafe_allow_html=True,
     )
 
-    st.write("")
-    col1, col2, col3, col4 = st.columns(4)
-    threshold_name = {"Verde": "Normal", "Amarilla": "P90", "Naranja": "P95", "Roja": "P99"}
-    col1.metric("Precipitacion Actual", f"{lluvia_mm:.2f} mm/dia")
-    col2.metric("Umbral activo", threshold_name[alerta])
-    col3.metric("P90", f"{p90:.2f} mm/dia")
-    col4.metric("Riesgo alto", "Indice >= 0.60")
-
     # --- PESTAÑAS ---
     tab1, tab2, tab3, tab4 = st.tabs([
         "Resumen", "Mapas", "Análisis Histórico", "Modelo de riesgo"
