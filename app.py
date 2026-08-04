@@ -295,8 +295,12 @@ def main():
     # --- BARRA LATERAL (PANEL DE CONTROL) ---
     with st.sidebar:
         st.header("⚙️ Panel de Control")
+        
+        st.markdown("---")
+        st.subheader("📍 Coordenadas de la Cuenca")
+        st.markdown("**Latitud:** 8.559471 | **Longitud:** -82.459861")
 
-        st.subheader("📅 Consulta Histórica de Fecha")
+        st.subheaderst("📅 Consulta Histórica de Fecha")
         min_date = df_hist["fecha"].min().date() if not df_hist.empty else date(1985, 1, 1)
         max_date = df_hist["fecha"].max().date() if not df_hist.empty else date(2025, 12, 31)
         fecha_seleccionada = st.date_input(
@@ -325,7 +329,7 @@ def main():
 
     st.markdown(
         f"""
-        <div style="border-left: 8px solid {COLORS[alerta]}; background: #F8FAFC; padding: 16px 20px; border-radius: 8px, text-align: center;">
+        <div style="border-left: 8px solid {COLORS[alerta]}; background: #F8FAFC; padding: 16px 20px; border-radius: 8px; text-align: center; max-width: 500px; margin: 0 auto;">
             <b style="font-size:2.2rem; color:{COLORS[alerta]}">ALERTA {alerta.upper()}</b><br>
             Lluvia media mas reciente: <b>{lluvia_mm:.2f} mm/dia</b>
         </div>
