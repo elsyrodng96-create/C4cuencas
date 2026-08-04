@@ -325,7 +325,7 @@ def main():
 
     st.markdown(
         f"""
-        <div style="border-left: 8px solid {COLORS[alerta]}; background: #F8FAFC; padding: 16px 20px; border-radius: 8px;">
+        <div style="border-left: 8px solid {COLORS[alerta]}; background: #F8FAFC; padding: 16px 20px; border-radius: 8px, text-align: center;">
             <b style="font-size:2.2rem; color:{COLORS[alerta]}">ALERTA {alerta.upper()}</b><br>
             Lluvia media mas reciente: <b>{lluvia_mm:.2f} mm/dia</b>
         </div>
