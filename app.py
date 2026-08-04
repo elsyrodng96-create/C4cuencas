@@ -271,7 +271,10 @@ def make_map(view, p90, p95, p99):
 # 4. APLICACIÓN PRINCIPAL
 # -----------------------------------------------------------------------------
 def main():
-    st.title("🌧️ SAT - SUBCUENCA DEL RIO DAVID")
+    st.markdown(
+        "<h1 style='text-align: center;'>🌧️ SAT - Subcuenca del Rio David</h1>",
+        unsafe_allow_html=True,
+    )
     st.caption(
         "Portal de monitoreo de precipitacion, riesgo y alerta por inundaciones - Chiriqui, Panama"
     )
