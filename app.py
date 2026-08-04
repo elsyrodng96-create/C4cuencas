@@ -305,7 +305,8 @@ def main():
             min_value=min_date,
             max_value=max_date,
         )
-        # Filtrar precipitación para el día seleccionado en la barra lateral
+        
+       # Filtrar precipitación para el día seleccionado en la barra lateral
         lluvia_dia = df_hist[df_hist["fecha"].dt.date == fecha_seleccionada]
         if not lluvia_dia.empty:
             val_lluvia = lluvia_dia["lluvia_mm"].values[0]
