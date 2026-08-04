@@ -272,7 +272,7 @@ def make_map(view, p90, p95, p99):
 # -----------------------------------------------------------------------------
 def main():
     st.markdown(
-        "<h1 style='text-align: center;'>🌧️ SAT - Subcuenca del Rio David</h1>",
+        "<h1 style='text-align: center;'>🌧️ SAT - SUBCUENCA DEL RIO DAVID</h1>",
         unsafe_allow_html=True,
     )
     st.caption(
