@@ -376,7 +376,7 @@ def main():
         with colp1:
             st.markdown(tarjeta_umbral("P90", p90, COLORS["Verde"]), unsafe_allow_html=True)
         with colp2:
-            st.markdown(tarjeta_umbral("P95", p95, COLORS["Naranja"]), unsafe_allow_html=True)
+            st.markdown(tarjeta_umbral("P95", p95, COLORS["Amarilla"]), unsafe_allow_html=True)
         with colp3:
             st.markdown(tarjeta_umbral("P99", p99, COLORS["Roja"]), unsafe_allow_html=True)
 
