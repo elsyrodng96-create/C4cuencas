@@ -280,7 +280,7 @@ def main():
     try:
         init_earth_engine()
         df_hist = load_historical_data()
-        lluvia_mm = current_rainfall()
+        lluvia_mm, fecha_mas_reciente = current_rainfall()
     except Exception as error:
         st.error("No se pudo conectar con Google Earth Engine o cargar datos.")
         st.info("Revisa la clave [gee_service_account] en tus secretos de Streamlit.")
