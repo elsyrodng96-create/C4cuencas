@@ -335,7 +335,7 @@ def main():
 
     # --- PESTAÑAS ---
     tab1, tab2, tab3, tab4 = st.tabs([
-        "Resumen", "Mapas", "Análisis Histórico", "Modelo de riesgo"
+        "Resumen", "Mapas", "Análisis Histórico", "Dataframe de datos historicos"
     ])
 
     with tab1:
@@ -430,8 +430,21 @@ def main():
         st.pyplot(fig2)
 
     with tab4:
-        st.subheader("Modelo de riesgo de inundacion")
-        st.write("El índice combina acumulación de flujo (55%), pendiente baja (30%) y uso del suelo (15%).")
+        st.subheader("📋 Datos Históricos de Precipitación (CHIRPS)")
+        st.caption(f"Registros totales: {len(df_hist)} — desde {df_hist['fecha'].min().date()} hasta {df_hist['fecha'].max().date()}")
+
+        st.dataframe(
+            df_hist,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.download_button(
+            label="⬇️ Descargar CSV",
+            data=df_hist.to_csv(index=False).encode("utf-8"),
+            file_name="chirps_historico.csv",
+            mime="text/csv",
+        )
 
 
 if __name__ == "__main__":
