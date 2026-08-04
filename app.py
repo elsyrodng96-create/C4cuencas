@@ -101,7 +101,7 @@ def load_historical_data():
             ee.Filter.eq("HYBAS_ID", HYBAS_ID)
         )
         geom = cuenca.geometry()
-        
+
         chirps = (
             ee.ImageCollection("UCSB-CHG/CHIRPS/DAILY")
             .filterDate("1985-01-01", "2025-12-31")
@@ -305,38 +305,6 @@ def main():
             min_value=min_date,
             max_value=max_date,
         )
-        # Filtrar precipitación para el día seleccionado en la barra lateral
-        lluvia_dia = df_hist[df_hist["fecha"].dt.date == fecha_seleccionada]
-        if not lluvia_dia.empty:
-            val_lluvia = lluvia_dia["lluvia_mm"].values[0]
-            st.metric(
-                label=f"Lluvia el {fecha_seleccionada.strftime('%Y-%m-%d')}",
-                value=f"{val_lluvia:.2f} mm/día"
-            )
-            # Nivel de alerta específico para esa fecha seleccionada
-            alerta_sel = alert_level(val_lluvia, p90, p95, p99)
-            st.markdown(f"**Nivel de Alerta:** :{COLORS[alerta_sel]}[ALERTA {alerta_sel.upper()}]")
-        else:
-            st.warning("No hay registro para la fecha seleccionada.")
-
-    # Estado de alerta actual
-    alerta = alert_level(lluvia_mm, p90, p95, p99)
-    st.markdown(
-        f"""
-        <div style="border-left: 8px solid {COLORS[alerta]}; background: #F8FAFC; padding: 16px 20px; border-radius: 8px;">
-            <b style="font-size:1.25rem; color:{COLORS[alerta]}">ALERTA {alerta.upper()}</b><br>
-            Lluvia media mas reciente: <b>{lluvia_mm:.2f} mm/dia</b> - Fecha CHIRPS: <b>{fecha_mas_reciente}</b>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.write("")
-    col1, col2, col3, col4 = st.columns(4)
-    threshold_name = {"Verde": "Normal", "Amarilla": "P90", "Naranja": "P95", "Roja": "P99"}
-    col1.metric("Precipitacion Actual", f"{lluvia_mm:.2f} mm/dia")
-    col2.metric("Umbral activo", threshold_name[alerta])
-    col3.metric("P90", f"{p90:.2f} mm/dia")
-    col4.metric("Riesgo alto", "Indice >= 0.60")
 
         # Filtrar precipitación para el día seleccionado en la barra lateral
         lluvia_dia = df_hist[df_hist["fecha"].dt.date == fecha_seleccionada]
@@ -387,7 +355,17 @@ def main():
             "Roja": "Lluvia extrema. Activar protocolos institucionales de respuesta ante inundaciones.",
         }
         st.info(messages[alerta])
-        st.write(f"**Sector seleccionado:** {sector}")
+
+        st.markdown("#### Umbrales históricos utilizados (percentiles CHIRPS 1985–2025)")
+        colp1, colp2, colp3 = st.columns(3)
+        colp1.metric("P90", f"{p90:.2f} mm/día")
+        colp2.metric("P95", f"{p95:.2f} mm/día")
+        colp3.metric("P99", f"{p99:.2f} mm/día")
+
+        st.caption(
+            "Cobertura: subcuenca del Río David, Chiriquí, Panamá. "
+            "Unidad hidrográfica HYBAS_ID 7090885760."
+        )
 
     with tab2:
         view = st.radio("Capa a visualizar", ["Alerta vigente", "Indice de riesgo"], horizontal=True)
@@ -421,12 +399,12 @@ def main():
         # BLOQUE 15: Serie Temporal Completa de Precipitaciones Diarias
         st.markdown("### Serie Temporal de Precipitación Diaria y Umbrales")
         fig2, ax2 = plt.subplots(figsize=(14, 5))
-        
+
         ax2.plot(df_hist["fecha"], df_hist["lluvia_mm"], color="steelblue", linewidth=0.5, label="Precipitación diaria")
         ax2.axhline(y=p90, color="gold", linestyle="--", linewidth=1.5, label=f"P90 = {p90:.2f} mm")
         ax2.axhline(y=p95, color="darkorange", linestyle="--", linewidth=1.5, label=f"P95 = {p95:.2f} mm")
         ax2.axhline(y=p99, color="red", linestyle="--", linewidth=1.5, label=f"P99 = {p99:.2f} mm")
-        
+
         # Resaltar en el gráfico la fecha seleccionada en la barra lateral
         if not lluvia_dia.empty:
             fecha_dt = pd.to_datetime(fecha_seleccionada)
@@ -444,6 +422,7 @@ def main():
     with tab4:
         st.subheader("Modelo de riesgo de inundacion")
         st.write("El índice combina acumulación de flujo (55%), pendiente baja (30%) y uso del suelo (15%).")
+
 
 if __name__ == "__main__":
     main()
