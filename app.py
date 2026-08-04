@@ -357,10 +357,29 @@ def main():
         st.info(messages[alerta])
 
         st.markdown("#### Umbrales históricos utilizados (percentiles CHIRPS 1985–2025)")
+
+        def tarjeta_umbral(titulo, valor, color):
+            return f"""
+            <div style="
+                background-color: {color}22;
+                border: 2px solid {color};
+                border-radius: 12px;
+                padding: 16px;
+                text-align: center;
+            ">
+                <div style="font-size: 0.9rem; color: #334155; font-weight: 600;">{titulo}</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: {color};">{valor:.2f}</div>
+                <div style="font-size: 0.8rem; color: #64748B;">mm/día</div>
+            </div>
+            """
+
         colp1, colp2, colp3 = st.columns(3)
-        colp1.metric("P90", f"{p90:.2f} mm/día")
-        colp2.metric("P95", f"{p95:.2f} mm/día")
-        colp3.metric("P99", f"{p99:.2f} mm/día")
+        with colp1:
+            st.markdown(tarjeta_umbral("P90", p90, COLORS["Amarilla"]), unsafe_allow_html=True)
+        with colp2:
+            st.markdown(tarjeta_umbral("P95", p95, COLORS["Naranja"]), unsafe_allow_html=True)
+        with colp3:
+            st.markdown(tarjeta_umbral("P99", p99, COLORS["Roja"]), unsafe_allow_html=True)
 
         st.caption(
             "Cobertura: subcuenca del Río David, Chiriquí, Panamá. "
