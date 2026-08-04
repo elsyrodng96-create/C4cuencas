@@ -349,7 +349,7 @@ def main():
     with tab1:
         st.subheader("Interpretacion operativa")
         messages = {
-            "Verde": "Condiciones de lluvia dentro de los valores habituales. Mantener vigilancia rutinaria.",
+            "Verde": "**Condiciones de lluvia dentro de los valores habituales. Mantener vigilancia rutinaria**.",
             "Amarilla": "Lluvia intensa. Incrementar la vigilancia en zonas de riesgo alto.",
             "Naranja": "Lluvia muy intensa. Preparar acciones preventivas y comunicacion con comunidades expuestas.",
             "Roja": "Lluvia extrema. Activar protocolos institucionales de respuesta ante inundaciones.",
